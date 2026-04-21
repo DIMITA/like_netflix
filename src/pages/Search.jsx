@@ -1,26 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useSearch } from '../hooks/useSearch';
+import { useApp } from '../contexts/AppContext';
+import { useMultiSearch } from '../hooks/useMultiSearch';
 import MovieGrid from '../components/MovieGrid';
-import LoadingSpinner from '../components/LoadingSpinner';
+import SourceBadge from '../components/SourceBadge';
 
 export default function Search() {
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [query, setQuery] = useState(initialQuery);
-  const { results, loading, error } = useSearch(query);
+  const { activeSources } = useApp();
+  const { results, loading, sourceErrors, sourceLoading } = useMultiSearch(query, activeSources);
 
   useEffect(() => {
     setQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
-  const hasResults = results.movies.length > 0 || results.tvShows.length > 0;
+  const hasResults = results.length > 0;
   const searched = query.trim().length > 0;
+  const anyLoading = Object.values(sourceLoading).some(Boolean);
+  const hasSourceErrors = Object.keys(sourceErrors).length > 0;
 
   return (
     <div className="min-h-screen pt-24 pb-12">
       {/* Search input */}
-      <div className="px-4 md:px-8 mb-6">
+      <div className="px-4 md:px-8 mb-4">
         <div className="relative max-w-2xl">
           <input
             type="text"
@@ -41,20 +45,35 @@ export default function Search() {
         </div>
       </div>
 
-      {/* Loading */}
-      {loading && <LoadingSpinner />}
+      {/* Per-source loading indicators */}
+      {searched && anyLoading && (
+        <div className="px-4 md:px-8 mb-4 flex flex-wrap gap-2 items-center">
+          <span className="text-netflix-gray text-xs">Recherche en cours :</span>
+          {Object.entries(sourceLoading).map(([sourceId, isLoading]) =>
+            isLoading ? (
+              <span key={sourceId} className="flex items-center gap-1">
+                <SourceBadge source={sourceId} small />
+                <span className="w-3 h-3 border-2 border-netflix-red border-t-transparent rounded-full animate-spin inline-block" />
+              </span>
+            ) : null
+          )}
+        </div>
+      )}
 
-      {/* Error */}
-      {error && !loading && (
-        <div className="px-4 md:px-8">
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300">
-            ⚠️ {error}
-          </div>
+      {/* Per-source errors */}
+      {searched && hasSourceErrors && (
+        <div className="px-4 md:px-8 mb-4 flex flex-wrap gap-2">
+          {Object.entries(sourceErrors).map(([sourceId, err]) => (
+            <div key={sourceId} className="flex items-center gap-1.5 text-xs text-red-400 bg-red-900/20 border border-red-800/40 rounded px-2 py-1">
+              <SourceBadge source={sourceId} small />
+              <span>{err}</span>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && !error && searched && !hasResults && (
+      {!loading && !anyLoading && searched && !hasResults && (
         <div className="flex flex-col items-center justify-center py-24 text-center px-4">
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-xl font-bold text-white mb-2">Aucun résultat pour "{query}"</h2>
@@ -63,30 +82,24 @@ export default function Search() {
       )}
 
       {/* Initial state */}
-      {!searched && !loading && (
+      {!searched && (
         <div className="flex flex-col items-center justify-center py-24 text-center px-4">
           <div className="text-6xl mb-4">🎬</div>
           <h2 className="text-xl font-bold text-white mb-2">Recherchez votre film</h2>
           <p className="text-netflix-gray">Tapez un titre, un acteur, un genre...</p>
+          {activeSources.length === 0 && (
+            <p className="text-yellow-500 text-sm mt-2">⚠ Aucune plateforme sélectionnée — activez-en une dans la barre ci-dessus.</p>
+          )}
         </div>
       )}
 
       {/* Results */}
-      {!loading && hasResults && (
-        <div className="space-y-2">
-          {results.movies.length > 0 && (
-            <MovieGrid
-              title={`🎬 Films (${results.movies.length})`}
-              movies={results.movies}
-            />
-          )}
-          {results.tvShows.length > 0 && (
-            <MovieGrid
-              title={`📺 Séries (${results.tvShows.length})`}
-              movies={results.tvShows}
-            />
-          )}
-        </div>
+      {searched && hasResults && (
+        <MovieGrid
+          title={`Résultats pour "${query}" (${results.length})`}
+          movies={results}
+          loading={false}
+        />
       )}
     </div>
   );

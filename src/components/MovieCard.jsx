@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { getPosterUrl, getTitle, getReleaseYear, getMediaType, MOVIE_GENRES, TV_GENRES } from '../utils/tmdbApi';
+import SourceBadge from './SourceBadge';
 
 function StarRating({ rating }) {
   const stars = Math.round((rating || 0) / 2);
@@ -17,14 +17,18 @@ export default function MovieCard({ movie }) {
   const { setSelectedMovie, toggleFavorite, isFavorite, addToast } = useApp();
   const [imgError, setImgError] = useState(false);
 
-  const posterUrl = getPosterUrl(movie.poster_path);
-  const title = getTitle(movie);
-  const year = getReleaseYear(movie);
-  const rating = movie.vote_average?.toFixed(1) || '—';
-  const mediaType = getMediaType(movie);
-  const genreMap = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
-  const genres = (movie.genre_ids || []).slice(0, 2).map(id => genreMap[id]).filter(Boolean);
-  const favorited = isFavorite(movie.id);
+  // Works with both normalized format and legacy TMDB format
+  const id = movie.id;
+  const title = movie.title || movie.name || 'Sans titre';
+  const year = movie.year || (movie.release_date || movie.first_air_date || '').substring(0, 4);
+  const poster = movie.poster || (movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null);
+  const rating = movie.rating ?? movie.vote_average ?? 0;
+  const genres = movie.genres || [];
+  const source = movie.source || 'tmdb';
+  const mediaType = movie.mediaType || (movie.name !== undefined ? 'tv' : 'movie');
+  const hasVideo = !!(movie.videoKey || movie.videoUrl || movie.archiveId);
+
+  const favorited = isFavorite(id);
 
   const handleFavorite = (e) => {
     e.stopPropagation();
@@ -42,9 +46,9 @@ export default function MovieCard({ movie }) {
     >
       {/* Poster */}
       <div className="aspect-[2/3] relative overflow-hidden">
-        {posterUrl && !imgError ? (
+        {poster && !imgError ? (
           <img
-            src={posterUrl}
+            src={poster}
             alt={title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
@@ -53,14 +57,16 @@ export default function MovieCard({ movie }) {
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">
             <div className="text-center p-2">
-              <div className="text-4xl mb-2">🎬</div>
-              <div className="text-xs line-clamp-2">{title}</div>
+              <div className="text-4xl mb-2">
+                {source === 'archive' ? '📼' : source === 'youtube' ? '▶' : source === 'pexels' ? '📸' : '🎬'}
+              </div>
+              <div className="text-xs line-clamp-3 text-gray-400">{title}</div>
             </div>
           </div>
         )}
 
-        {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         {/* Heart button */}
         <button
@@ -68,42 +74,44 @@ export default function MovieCard({ movie }) {
           className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-lg transition-all duration-200 opacity-0 group-hover:opacity-100 ${
             favorited ? 'bg-netflix-red text-white' : 'bg-black/60 text-white hover:bg-netflix-red'
           }`}
-          aria-label={favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           {favorited ? '♥' : '♡'}
         </button>
 
-        {/* Media type badge */}
-        <div className={`absolute top-2 left-2 text-xs px-1.5 py-0.5 rounded font-medium opacity-0 group-hover:opacity-100 transition-opacity ${
-          mediaType === 'tv' ? 'bg-blue-600' : 'bg-netflix-red'
-        }`}>
-          {mediaType === 'tv' ? 'SÉRIE' : 'FILM'}
-        </div>
+        {/* Video indicator */}
+        {hasVideo && (
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-1.5 py-0.5 text-white text-xs flex items-center gap-1">
+            ▶ Vidéo
+          </div>
+        )}
 
-        {/* Info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <h3 className="text-white font-semibold text-sm line-clamp-2 mb-1">{title}</h3>
-          <div className="flex items-center justify-between">
-            <StarRating rating={movie.vote_average} />
+        {/* Hover info */}
+        <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <h3 className="text-white font-semibold text-xs line-clamp-2 mb-1">{title}</h3>
+          <div className="flex items-center justify-between mb-1">
+            <StarRating rating={rating} />
             <span className="text-netflix-gray text-xs">{year}</span>
           </div>
           {genres.length > 0 && (
-            <div className="flex gap-1 mt-1 flex-wrap">
-              {genres.map(g => (
-                <span key={g} className="text-xs text-gray-300 bg-white/10 px-1.5 py-0.5 rounded">{g}</span>
+            <div className="flex gap-1 flex-wrap">
+              {genres.slice(0, 2).map(g => (
+                <span key={g} className="text-[10px] text-gray-300 bg-white/10 px-1 py-0.5 rounded">{g}</span>
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Title below card */}
-      <div className="p-2 bg-netflix-card">
-        <p className="text-white text-xs font-medium truncate">{title}</p>
-        <div className="flex items-center justify-between mt-0.5">
-          <span className="text-yellow-400 text-xs">★ {rating}</span>
-          <span className="text-netflix-gray text-xs">{year}</span>
+      {/* Card footer */}
+      <div className="p-2 bg-netflix-card flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <p className="text-white text-xs font-medium truncate">{title}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {rating > 0 && <span className="text-yellow-400 text-xs">★ {Number(rating).toFixed(1)}</span>}
+            {year && <span className="text-netflix-gray text-xs">{year}</span>}
+          </div>
         </div>
+        <SourceBadge source={source} small />
       </div>
     </div>
   );
