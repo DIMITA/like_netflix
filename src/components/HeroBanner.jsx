@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { getBackdropUrl, getTitle, getReleaseYear, getMediaType } from '../utils/tmdbApi';
 
 export default function HeroBanner({ movies }) {
   const { setSelectedMovie, toggleFavorite, isFavorite, addToast } = useApp();
@@ -8,19 +7,21 @@ export default function HeroBanner({ movies }) {
 
   const hero = useMemo(() => {
     if (!movies?.length) return null;
-    const filtered = movies.filter(m => m.backdrop_path && m.overview);
-    const pool = filtered.length > 0 ? filtered : movies;
+    const filtered = movies.filter(m => m.backdrop && m.overview);
+    const pool = filtered.length > 0 ? filtered : movies.filter(m => m.backdrop);
+    if (!pool.length) return null;
     return pool[Math.floor(Math.random() * Math.min(pool.length, 10))];
   }, [movies]);
 
   if (!hero) return null;
 
-  const backdropUrl = getBackdropUrl(hero.backdrop_path);
-  const title = getTitle(hero);
-  const year = getReleaseYear(hero);
-  const rating = hero.vote_average?.toFixed(1);
+  const title = hero.title || '';
+  const year = hero.year || '';
+  const rating = hero.rating ? Number(hero.rating).toFixed(1) : null;
   const overview = hero.overview || '';
   const favorited = isFavorite(hero.id);
+  const isArchive = hero.source === 'archive';
+  const hasFullVideo = !!(hero.archiveId || hero.videoUrl);
 
   const handleFavorite = () => {
     toggleFavorite(hero);
@@ -32,10 +33,10 @@ export default function HeroBanner({ movies }) {
 
   return (
     <div className="relative w-full h-[75vh] min-h-[500px] max-h-[800px] overflow-hidden">
-      {/* Backdrop image */}
-      {backdropUrl && (
+      {/* Backdrop */}
+      {hero.backdrop && (
         <img
-          src={backdropUrl}
+          src={hero.backdrop}
           alt={title}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImgLoaded(true)}
@@ -53,13 +54,18 @@ export default function HeroBanner({ movies }) {
 
       {/* Content */}
       <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 lg:p-16 max-w-3xl">
-        {/* Badge */}
-        <div className="flex items-center gap-3 mb-3">
+        {/* Badges */}
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${
-            getMediaType(hero) === 'tv' ? 'bg-blue-600' : 'bg-netflix-red'
+            hero.mediaType === 'tv' ? 'bg-blue-600' : 'bg-netflix-red'
           }`}>
-            {getMediaType(hero) === 'tv' ? 'Série' : 'Film'}
+            {hero.mediaType === 'tv' ? 'Série' : 'Film'}
           </span>
+          {isArchive && (
+            <span className="text-xs font-bold px-2 py-1 rounded bg-purple-700 uppercase">
+              📼 Film complet gratuit
+            </span>
+          )}
           {year && <span className="text-netflix-gray text-sm">{year}</span>}
           {rating && (
             <span className="flex items-center gap-1 text-yellow-400 text-sm font-medium">
@@ -87,7 +93,7 @@ export default function HeroBanner({ movies }) {
             className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded font-bold text-sm md:text-base hover:bg-gray-200 active:bg-gray-300 transition-colors"
           >
             <span className="text-lg">▶</span>
-            Regarder
+            {hasFullVideo ? 'Regarder le film' : 'Voir le trailer'}
           </button>
           <button
             onClick={() => setSelectedMovie(hero)}

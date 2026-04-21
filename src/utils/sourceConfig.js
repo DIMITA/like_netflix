@@ -37,7 +37,7 @@ export const SOURCES = {
 };
 
 export const SOURCE_LIST = Object.values(SOURCES);
-export const DEFAULT_ACTIVE_SOURCES = ['tmdb'];
+export const DEFAULT_ACTIVE_SOURCES = ['tmdb', 'archive'];
 
 export const isSourceAvailable = (sourceId) => {
   const s = SOURCES[sourceId];

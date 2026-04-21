@@ -17,7 +17,6 @@ export default function MovieCard({ movie }) {
   const { setSelectedMovie, toggleFavorite, isFavorite, addToast } = useApp();
   const [imgError, setImgError] = useState(false);
 
-  // Works with both normalized format and legacy TMDB format
   const id = movie.id;
   const title = movie.title || movie.name || 'Sans titre';
   const year = movie.year || (movie.release_date || movie.first_air_date || '').substring(0, 4);
@@ -25,8 +24,18 @@ export default function MovieCard({ movie }) {
   const rating = movie.rating ?? movie.vote_average ?? 0;
   const genres = movie.genres || [];
   const source = movie.source || 'tmdb';
-  const mediaType = movie.mediaType || (movie.name !== undefined ? 'tv' : 'movie');
-  const hasVideo = !!(movie.videoKey || movie.videoUrl || movie.archiveId);
+
+  const hasFullVideo = !!(movie.videoUrl || movie.archiveId);
+  const hasTrailer = !!(movie.videoKey) && !hasFullVideo;
+  const isMetadataOnly = !hasFullVideo && !hasTrailer && (source === 'tmdb' || source === 'omdb' || source === 'rapidapi');
+
+  const videoLabel = movie.archiveId
+    ? '📼 Film complet'
+    : movie.videoUrl
+    ? '▶ Vidéo'
+    : hasTrailer
+    ? '🎬 Trailer'
+    : null;
 
   const favorited = isFavorite(id);
 
@@ -78,10 +87,24 @@ export default function MovieCard({ movie }) {
           {favorited ? '♥' : '♡'}
         </button>
 
-        {/* Video indicator */}
-        {hasVideo && (
+        {/* Full video badge — always visible for archive */}
+        {movie.archiveId && (
+          <div className="absolute top-2 left-2 bg-purple-700/90 rounded px-1.5 py-0.5 text-white text-[10px] font-bold">
+            📼 GRATUIT
+          </div>
+        )}
+
+        {/* Video indicator on hover */}
+        {videoLabel && !movie.archiveId && (
           <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-1.5 py-0.5 text-white text-xs flex items-center gap-1">
-            ▶ Vidéo
+            {videoLabel}
+          </div>
+        )}
+
+        {/* TMDB/metadata "trailer only" hint */}
+        {isMetadataOnly && (
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-1.5 py-0.5 text-gray-300 text-xs">
+            🎬 Trailer
           </div>
         )}
 
@@ -109,6 +132,7 @@ export default function MovieCard({ movie }) {
           <div className="flex items-center gap-1.5 mt-0.5">
             {rating > 0 && <span className="text-yellow-400 text-xs">★ {Number(rating).toFixed(1)}</span>}
             {year && <span className="text-netflix-gray text-xs">{year}</span>}
+            {hasFullVideo && <span className="text-purple-400 text-[10px] font-bold">COMPLET</span>}
           </div>
         </div>
         <SourceBadge source={source} small />

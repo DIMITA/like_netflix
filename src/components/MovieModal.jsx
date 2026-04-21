@@ -312,11 +312,16 @@ export default function MovieModal() {
                         onClick={handleWatch}
                         className="flex items-center gap-2 bg-netflix-red text-white px-5 py-2.5 rounded font-bold text-sm hover:bg-red-700 transition-colors"
                       >
-                        ▶ {source === 'archive' ? 'Regarder' : source === 'youtube' ? 'Lire la vidéo' : 'Voir le trailer'}
+                        ▶ {
+                          movie.archiveId ? '📼 Regarder le film complet'
+                          : movie.videoUrl ? 'Lire la vidéo'
+                          : source === 'youtube' ? 'Lire la vidéo'
+                          : '🎬 Voir le trailer'
+                        }
                       </button>
                     ) : (
                       <button disabled className="flex items-center gap-2 bg-gray-700 text-gray-400 px-5 py-2.5 rounded font-bold text-sm cursor-not-allowed">
-                        🎬 Pas de vidéo
+                        {source === 'tmdb' || source === 'omdb' || source === 'rapidapi' ? '🎬 Trailer indisponible' : '🎬 Pas de vidéo'}
                       </button>
                     )}
                     <button
